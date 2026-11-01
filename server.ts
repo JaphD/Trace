@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
+import type { Server } from 'node:http';
 import { version as APP_VERSION } from './package.json';
 
 async function startServer() {
@@ -14,6 +15,9 @@ async function startServer() {
     .digest('hex')
     .slice(0, 16);
   const instanceId = process.env.TRACE_INSTANCE_ID || randomUUID();
+  const shutdownToken = randomUUID();
+  let server: Server;
+  let stopping = false;
   let buildId: string | null = null;
   if (production) {
     try {
@@ -24,6 +28,10 @@ async function startServer() {
   }
   app.disable('x-powered-by');
   app.use((req, res, next) => {
+    // The shutdown control must not be embedded in another site's frame.
+    res.set('Content-Security-Policy', "frame-ancestors 'none'");
+    res.set('X-Frame-Options', 'DENY');
+    res.set('X-Content-Type-Options', 'nosniff');
     const host = (req.hostname || '').toLowerCase();
     if (!['localhost', '127.0.0.1', '[::1]'].includes(host))
       return res.status(403).json({ error: 'Local access only' });
@@ -41,6 +49,40 @@ async function startServer() {
       }
     }
     next();
+  });
+  app.get('/api/session', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const site = req.get('sec-fetch-site');
+    const origin = req.get('origin');
+    if (
+      req.get('x-trace-request') !== '1' ||
+      (site && site !== 'same-origin') ||
+      (origin && origin !== 'http://' + req.get('host'))
+    )
+      return res.status(403).json({ error: 'Local application request required' });
+    res.json({ shutdownToken });
+  });
+  app.all('/api/shutdown', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (req.method !== 'POST') return res.set('Allow', 'POST').status(405).end();
+    const site = req.get('sec-fetch-site');
+    if (
+      req.get('origin') !== 'http://' + req.get('host') ||
+      (site && site !== 'same-origin') ||
+      req.get('x-trace-shutdown') !== shutdownToken
+    )
+      return res.status(403).json({ error: 'Local session verification required' });
+    if (stopping) return res.status(409).json({ error: 'TRACE is already stopping' });
+    stopping = true;
+    // Send the acknowledgement before closing the listener. Never kill a PID supplied by a client.
+    res.once('finish', () => {
+      server.close(() => process.exit(0));
+      setTimeout(() => {
+        server.closeAllConnections();
+        process.exit(0);
+      }, 2000).unref();
+    });
+    res.json({ stopped: true });
   });
   app.get('/api/health', (_req, res) =>
     res.set('Cache-Control', 'no-store').json({
@@ -111,7 +153,7 @@ async function startServer() {
     app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
   await new Promise<void>((resolve, reject) => {
-    const server = app.listen(port, '127.0.0.1', resolve);
+    server = app.listen(port, '127.0.0.1', resolve);
     server.once('error', reject);
   });
   console.log(

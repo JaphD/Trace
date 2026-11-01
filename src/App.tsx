@@ -22,6 +22,7 @@ import {
   HardDrive,
   Folder,
   LayoutGrid,
+  Power,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { uid, type Workspace, type Project, type BomRow, type Observation } from './core/types';
@@ -37,6 +38,7 @@ import {
 import { APP_VERSION, backupDue, emptyBackupStatus, type BackupStatus } from './core/local-release';
 import { holdEditorLock, type EditorState } from './core/editor-lock';
 import { EditorGate } from './components/EditorGate';
+import { stopLocalServer } from './core/local-session';
 import {
   emptyWorkspace,
   migrate,
@@ -91,9 +93,18 @@ export default function App() {
   const [lockAttempt, setLockAttempt] = useState(0);
   const [backupStatus, setBackupStatus] = useState<BackupStatus>(emptyBackupStatus);
   const [saving, setSaving] = useState(true);
+  const [sessionState, setSessionState] = useState<'active' | 'stopping' | 'stopped'>('active');
+  const stopRequested = useRef(false);
+  const refreshBusy = useRef(false);
+  const releaseEditor = useRef<(() => void) | null>(null);
   useEffect(() => {
     setEditorState('checking');
-    return holdEditorLock(navigator.locks, setEditorState, () => drainWorkspaceWrites());
+    const release = holdEditorLock(navigator.locks, setEditorState, () => drainWorkspaceWrites());
+    releaseEditor.current = release;
+    return () => {
+      release();
+      releaseEditor.current = null;
+    };
   }, [lockAttempt]);
   const [w, setW] = useState<Workspace>(initial.workspace),
     [loadError, setLoadError] = useState(initial.error),
@@ -158,7 +169,7 @@ export default function App() {
     };
   }, [editorState]);
   useEffect(() => {
-    if (!ready || loadError || editorState !== 'editor') return;
+    if (!ready || loadError || editorState !== 'editor' || stopRequested.current) return;
     setSaving(true);
     let cancelled = false;
     Promise.resolve()
@@ -200,12 +211,15 @@ export default function App() {
     [],
   );
   const runRefresh = useCallback(async (all: string[]) => {
+    if (stopRequested.current) return;
+    refreshBusy.current = true;
     setBusy(true);
     const before = wRef.current;
     const successful: Record<string, Observation> = {};
     let failures = 0;
     try {
       await refreshCodes(all, before.observations, (code, result) => {
+        if (stopRequested.current) return;
         if (!(result instanceof Error)) successful[code] = result;
         setW((prev) => {
           const old = prev.observations[code];
@@ -305,8 +319,10 @@ export default function App() {
         if (result instanceof Error) failures++;
       });
     } finally {
+      refreshBusy.current = false;
       setBusy(false);
     }
+    if (stopRequested.current) return;
     const current = wRef.current;
     const changes = supplierChanges(
       { ...current, observations: before.observations },
@@ -337,6 +353,7 @@ export default function App() {
   const refreshQueue = useMemo(() => createRefreshQueue(runRefresh), [runRefresh]);
   const refresh = useCallback(
     async (codes?: string[]) => {
+      if (stopRequested.current) return;
       if (!navigator.onLine) {
         setNotice('Offline: your BOM is saved locally. Use Refresh parts when you reconnect.');
         return;
@@ -360,7 +377,7 @@ export default function App() {
     [refreshQueue],
   );
   useEffect(() => {
-    if (!ready || loadError || !online || !p) return;
+    if (!ready || loadError || !online || !p || sessionState !== 'active') return;
     const codes = [...new Set(p.rows.map((r) => r.code))].filter(
       (code) =>
         /^C\d+$/.test(code) &&
@@ -369,12 +386,12 @@ export default function App() {
     );
     codes.forEach((code) => rulesQueued.current.add(code));
     if (codes.length) void refresh(codes);
-  }, [ready, loadError, online, p?.id, p?.rows, refresh]);
+  }, [ready, loadError, online, p?.id, p?.rows, refresh, sessionState]);
   useEffect(() => {
-    if (!w.settings.pollEnabled) return;
+    if (!w.settings.pollEnabled || sessionState !== 'active') return;
     const timer = setInterval(() => refresh(), Math.max(1, w.settings.pollMinutes) * 60000);
     return () => clearInterval(timer);
-  }, [w.settings.pollEnabled, w.settings.pollMinutes, refresh]);
+  }, [w.settings.pollEnabled, w.settings.pollMinutes, refresh, sessionState]);
   // Repaint freshness labels even when no supplier response arrives.
   const [, tick] = useState(0);
   useEffect(() => {
@@ -388,6 +405,40 @@ export default function App() {
     resetFilters();
     setSelected([]);
     setDetailId(null);
+  };
+  const stopSession = async () => {
+    if (stopRequested.current || loadError) return;
+    if (
+      !(await confirmation.ask(
+        'Save your workspace and stop TRACE? This stops the local server for all TRACE tabs. Your projects stay in this browser. Open TRACE.cmd to start again.',
+      ))
+    )
+      return;
+    if (refreshBusy.current) {
+      setNotice('A parts refresh is still running. Wait for it to finish, then stop TRACE.');
+      return;
+    }
+    stopRequested.current = true;
+    setSessionState('stopping');
+    try {
+      await stopLocalServer(async () => {
+        await writeWorkspace(wRef.current);
+        await drainWorkspaceWrites();
+      });
+      setSaving(false);
+      setSaveError('');
+      releaseEditor.current?.();
+      releaseEditor.current = null;
+      setSessionState('stopped');
+    } catch (error) {
+      stopRequested.current = false;
+      setSessionState('active');
+      setNotice(
+        'Could not finish stopping TRACE: ' +
+          (error as Error).message +
+          ' Keep this tab open; export a backup if saving failed.',
+      );
+    }
   };
   const saveProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -762,6 +813,24 @@ export default function App() {
     inventory: 'Owned inventory',
     activity: 'Activity',
   }[view];
+  if (sessionState !== 'active')
+    return (
+      <main className="editor-gate" aria-live="polite">
+        <Power size={28} />
+        <p className="eyebrow">TRACE · LOCAL WORKBENCH</p>
+        <h1>{sessionState === 'stopping' ? 'Saving and stopping…' : 'TRACE stopped'}</h1>
+        <p>
+          {sessionState === 'stopping'
+            ? 'Keep this tab open while your workspace is saved.'
+            : 'Your workspace is saved in this browser. You can close this tab.'}
+        </p>
+        {sessionState === 'stopped' && (
+          <p>
+            To work again, double-click <strong>TRACE.cmd</strong>.
+          </p>
+        )}
+      </main>
+    );
   if (editorState !== 'editor')
     return <EditorGate state={editorState} retry={() => setLockAttempt((n) => n + 1)} />;
   if (!ready)
@@ -873,6 +942,21 @@ export default function App() {
           <button className="nav-item" onClick={() => setModal('settings')}>
             <Settings2 size={17} />
             Preferences
+          </button>
+          <button
+            className="nav-item"
+            onClick={stopSession}
+            disabled={busy || !!loadError}
+            title={
+              busy
+                ? 'Wait for the parts refresh to finish'
+                : loadError
+                  ? 'Resolve the workspace loading error first'
+                  : 'Save and stop the local server'
+            }
+          >
+            <Power size={17} />
+            Stop TRACE
           </button>
         </div>
       </aside>

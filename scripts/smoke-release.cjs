@@ -90,8 +90,49 @@ async function run() {
         .on('error', reject);
     });
     assert.equal(badHostStatus, 403, 'external Host must be rejected');
+    assert.equal(
+      (await fetch(base + '/api/session')).status,
+      403,
+      'session token must require an application request header',
+    );
+    const sessionResponse = await fetch(base + '/api/session', {
+      headers: { 'X-TRACE-Request': '1' },
+    });
+    assert.equal(sessionResponse.status, 200);
+    assert.equal(sessionResponse.headers.get('cache-control'), 'no-store');
+    const session = await sessionResponse.json();
+    assert.match(session.shutdownToken, /^[0-9a-f-]{36}$/);
+    assert.equal((await fetch(base + '/api/shutdown')).status, 405);
+    for (const headers of [
+      {},
+      { Origin: base },
+      { Origin: base, 'X-TRACE-Shutdown': 'wrong-token' },
+      { 'X-TRACE-Shutdown': session.shutdownToken },
+      { Origin: 'https://outside.example', 'X-TRACE-Shutdown': session.shutdownToken },
+      { Origin: base.replace('http:', 'https:'), 'X-TRACE-Shutdown': session.shutdownToken },
+      { Origin: base.replace('127.0.0.1', 'localhost'), 'X-TRACE-Shutdown': session.shutdownToken },
+      { Origin: base, 'X-TRACE-Shutdown': session.shutdownToken, 'Sec-Fetch-Site': 'cross-site' },
+    ]) {
+      assert.equal(
+        (await fetch(base + '/api/shutdown', { method: 'POST', headers })).status,
+        403,
+        'shutdown must reject a missing/wrong token, missing/mismatched Origin or cross-site request',
+      );
+    }
+    assert.equal((await fetch(base + '/api/health')).status, 200);
+    assert.equal(response.headers.get('x-frame-options'), 'DENY');
+    assert.ok(response.headers.get('content-security-policy').includes("frame-ancestors 'none'"));
+    const shutdown = await fetch(base + '/api/shutdown', {
+      method: 'POST',
+      headers: { Origin: base, 'X-TRACE-Shutdown': session.shutdownToken },
+    });
+    assert.equal(shutdown.status, 200);
+    assert.deepEqual(await shutdown.json(), { stopped: true });
+    for (let i = 0; i < 60 && child.exitCode === null; i++)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(child.exitCode, 0, 'authenticated shutdown must exit the server cleanly');
     console.log(
-      'PASS: production startup, version/build identity, compiled assets, invalid part code and local access restrictions. No supplier connection required.',
+      'PASS: production startup, build identity, assets, local access restrictions and protected browser shutdown. No supplier connection required.',
     );
   } finally {
     if (child.exitCode === null && child.pid) {

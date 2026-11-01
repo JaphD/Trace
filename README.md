@@ -25,7 +25,9 @@ The launcher workflow is tested on Windows. Other operating systems can use the 
 
 The local server runs in the background. Running TRACE.cmd again reuses a matching running release. If an older development server occupies port 3000, stop it in its original terminal with Ctrl+C, then launch TRACE again.
 
-**To stop:** finish editing, close TRACE tabs, then double-click **Stop-TRACE.cmd**. Closing the browser alone leaves the server running. Monitoring stops when the app is closed.
+**To stop:** click **Stop TRACE** below Preferences in the sidebar and confirm. TRACE saves your workspace before stopping its local server, then shows a stopped screen. You can close that tab. If a parts refresh is running, wait for it to finish first. This stops the server for all TRACE tabs; your saved projects stay in their browser profiles. Double-click **TRACE.cmd** to start again.
+
+**Stop-TRACE.cmd** remains available as a fallback; finish editing and close TRACE tabs before using it. Closing the browser alone leaves the server running. Monitoring stops when the app is closed.
 
 PowerShell users can run `./Start-Local.ps1` if their existing execution policy permits local scripts. The CMD launcher requires no policy change or administrator rights.
 
@@ -40,7 +42,7 @@ npm run local
 
 Stop the launcher-managed server with `npm run stop`.
 
-For a foreground production server, use `npm run build` followed by `npm start`; Ctrl+C stops that session. A server started this way must be stopped from its original terminal.
+For a foreground production server, use `npm run build` followed by `npm start`; use the browser's **Stop TRACE** button or Ctrl+C in that terminal to stop it.
 
 ## Everyday workflow
 
