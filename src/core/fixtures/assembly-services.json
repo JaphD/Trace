@@ -1,0 +1,46 @@
+{
+  "payloads": {
+    "C2913198": {
+      "code": 200,
+      "data": {
+        "componentCode": "C2913198",
+        "componentModelEn": "ESP32-S3-WROOM-1-N8",
+        "componentLibraryType": "expand",
+        "componentProductType": 2,
+        "componentSpecificationEn": "SMD,25.5x18mm",
+        "stockCount": 100,
+        "leastPatchNumber": 0,
+        "lossNumber": 0,
+        "assemblyProcess": "SMT",
+        "assemblyMode": "smtWeld",
+        "prices": [
+          {
+            "startNumber": 1,
+            "productPrice": 1
+          }
+        ]
+      }
+    },
+    "C18548266": {
+      "code": 200,
+      "data": {
+        "componentCode": "C18548266",
+        "componentModelEn": "SIM7080G-M",
+        "componentLibraryType": "expand",
+        "componentProductType": 0,
+        "componentSpecificationEn": "SMD,17.6x15.7mm",
+        "stockCount": 100,
+        "leastPatchNumber": 0,
+        "lossNumber": 0,
+        "assemblyProcess": "SMT",
+        "assemblyMode": "smtWeld",
+        "prices": [
+          {
+            "startNumber": 1,
+            "productPrice": 1
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,230 @@
+[
+  {
+    "name": "Synthetic Standard quantities",
+    "mode": "standard",
+    "csv": "Designator,Footprint,Quantity,Value,LCSC Part #\n\"C1,C2,C3,C4,C5,C6,C7,C8\",C0201,8,Test capacitor,C1001\nU1,QFN-32,1,Test IC,C1002",
+    "payloads": {
+      "C1001": {
+        "code": 200,
+        "observedAt": 1700000000000,
+        "data": {
+          "componentCode": "C1001",
+          "componentModelEn": "TEST-C1001",
+          "componentSpecificationEn": "0201",
+          "stockCount": 500,
+          "componentLibraryType": "expand",
+          "prices": [
+            {
+              "startNumber": 1,
+              "productPrice": 0.02
+            }
+          ],
+          "leastPatchNumber": 20,
+          "lossNumber": 10,
+          "assemblyProcess": "SMT",
+          "assemblyMode": "smtWeld",
+          "specialComponentFee": 0
+        }
+      },
+      "C1002": {
+        "code": 200,
+        "observedAt": 1700000000000,
+        "data": {
+          "componentCode": "C1002",
+          "componentModelEn": "TEST-C1002",
+          "componentSpecificationEn": "QFN-32",
+          "stockCount": 100,
+          "componentLibraryType": "expand",
+          "prices": [
+            {
+              "startNumber": 1,
+              "productPrice": 1.5
+            }
+          ],
+          "leastPatchNumber": 0,
+          "lossNumber": 0,
+          "assemblyProcess": "SMT",
+          "assemblyMode": "smtWeld",
+          "specialComponentFee": 0
+        }
+      }
+    },
+    "expected": [
+      {
+        "code": "C1001",
+        "quantity": 26,
+        "cost": 0.52
+      },
+      {
+        "code": "C1002",
+        "quantity": 2,
+        "cost": 3
+      }
+    ]
+  },
+  {
+    "name": "Synthetic Economic quantities",
+    "mode": "economic",
+    "csv": "Designator,Footprint,Quantity,Value,LCSC Part #\n\"C1,C2,C3,C4,C5,C6,C7,C8,C9\",C0603,9,Test capacitor,C2001\nD1,SOT-23,1,Test diode,C2002\nC10,C1210,1,Test capacitor,C2003\nJ1,CONN-TH,1,Test header,C2004\n\"J2,J3\",CONN-TH,2,Test terminal,C2005\nU1,DISPLAY-TH,1,Test display,C2006",
+    "payloads": {
+      "C2001": {
+        "code": 200,
+        "observedAt": 1700000000000,
+        "data": {
+          "componentCode": "C2001",
+          "componentModelEn": "TEST-C2001",
+          "componentSpecificationEn": "0603",
+          "stockCount": 100,
+          "componentLibraryType": "base",
+          "prices": [
+            {
+              "startNumber": 1,
+              "productPrice": 0.01
+            }
+          ],
+          "leastPatchNumber": 20,
+          "lossNumber": 10,
+          "assemblyProcess": "SMT",
+          "assemblyMode": "smtWeld",
+          "specialComponentFee": 0
+        }
+      },
+      "C2002": {
+        "code": 200,
+        "observedAt": 1700000000000,
+        "data": {
+          "componentCode": "C2002",
+          "componentModelEn": "TEST-C2002",
+          "componentSpecificationEn": "SOT-23",
+          "stockCount": 4,
+          "componentLibraryType": "expand",
+          "prices": [
+            {
+              "startNumber": 1,
+              "productPrice": 0.5
+            }
+          ],
+          "leastPatchNumber": 5,
+          "lossNumber": 3,
+          "assemblyProcess": "SMT",
+          "assemblyMode": "smtWeld",
+          "specialComponentFee": 0
+        }
+      },
+      "C2003": {
+        "code": 200,
+        "observedAt": 1700000000000,
+        "data": {
+          "componentCode": "C2003",
+          "componentModelEn": "TEST-C2003",
+          "componentSpecificationEn": "1210",
+          "stockCount": 1,
+          "componentLibraryType": "expand",
+          "prices": [
+            {
+              "startNumber": 1,
+              "productPrice": 0.2
+            }
+          ],
+          "leastPatchNumber": 0,
+          "lossNumber": 0,
+          "assemblyProcess": "SMT",
+          "assemblyMode": "smtWeld",
+          "specialComponentFee": 0
+        }
+      },
+      "C2004": {
+        "code": 200,
+        "observedAt": 1700000000000,
+        "data": {
+          "componentCode": "C2004",
+          "componentModelEn": "TEST-C2004",
+          "componentSpecificationEn": "CONN-TH",
+          "stockCount": 100,
+          "componentLibraryType": "expand",
+          "prices": [
+            {
+              "startNumber": 1,
+              "productPrice": 0.1
+            }
+          ],
+          "leastPatchNumber": 0,
+          "lossNumber": 0,
+          "assemblyProcess": "THT",
+          "assemblyMode": "manualWeld",
+          "specialComponentFee": 0
+        }
+      },
+      "C2005": {
+        "code": 200,
+        "observedAt": 1700000000000,
+        "data": {
+          "componentCode": "C2005",
+          "componentModelEn": "TEST-C2005",
+          "componentSpecificationEn": "CONN-TH",
+          "stockCount": 100,
+          "componentLibraryType": "expand",
+          "prices": [
+            {
+              "startNumber": 1,
+              "productPrice": 0.1
+            }
+          ],
+          "leastPatchNumber": 0,
+          "lossNumber": 0,
+          "assemblyProcess": "THT",
+          "assemblyMode": "manualWeld",
+          "specialComponentFee": 0
+        }
+      },
+      "C2006": {
+        "code": 200,
+        "observedAt": 1700000000000,
+        "data": {
+          "componentCode": "C2006",
+          "componentModelEn": "TEST-C2006",
+          "componentSpecificationEn": "DISPLAY-TH",
+          "stockCount": 100,
+          "componentLibraryType": "expand",
+          "prices": [
+            {
+              "startNumber": 1,
+              "productPrice": 1
+            }
+          ],
+          "leastPatchNumber": 0,
+          "lossNumber": 0,
+          "assemblyProcess": "THT",
+          "assemblyMode": "manualWeld",
+          "specialComponentFee": 0
+        }
+      }
+    },
+    "expected": [
+      {
+        "code": "C2001",
+        "quantity": 18
+      },
+      {
+        "code": "C2002",
+        "quantity": 5
+      },
+      {
+        "code": "C2003",
+        "quantity": 2
+      },
+      {
+        "code": "C2004",
+        "quantity": 2
+      },
+      {
+        "code": "C2005",
+        "quantity": 4
+      },
+      {
+        "code": "C2006",
+        "quantity": 2
+      }
+    ]
+  }
+]
