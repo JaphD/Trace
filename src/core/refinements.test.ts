@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { parseBom, reconcileRows, diffRows } from './bom';
 import { defaultBuild } from './calculations';
-import { emptyWorkspace, validateWorkspace, removeProject, editableWorkspace } from './storage';
+import {
+  emptyWorkspace,
+  validateWorkspace,
+  removeProject,
+  removeAllProjects,
+  removeScenario,
+  removeRevision,
+  editableWorkspace,
+} from './storage';
 import { createRefreshQueue } from './supplier';
 
 describe('assembly and BOM refinements', () => {
@@ -125,6 +133,45 @@ describe('project lifecycle', () => {
     expect(next.observations).toEqual(w.observations);
     expect(w.projects).toHaveLength(2);
     expect(() => validateWorkspace(next)).not.toThrow();
+    const cleared = removeAllProjects(w);
+    expect(cleared.projects).toEqual([]);
+    expect(cleared.inventory).toEqual([{ ...w.inventory[0], allocations: [] }]);
+    expect(cleared.settings).toEqual(w.settings);
+    expect(() => validateWorkspace(cleared)).not.toThrow();
+    w.projects[0].workingBuild.basedOnBuildId = 'deleted-saved';
+    const withoutScenario = removeScenario(w, 'deleted', 'deleted-saved');
+    expect(withoutScenario.projects[0].builds).toEqual([]);
+    expect(withoutScenario.projects[0].workingBuild.basedOnBuildId).toBeUndefined();
+    expect(withoutScenario.projects[0].workingBuild.quantity).toBe(
+      w.projects[0].workingBuild.quantity,
+    );
+    expect(withoutScenario.inventory[0].allocations).toEqual([
+      { buildId: 'deleted-working', quantity: 2 },
+      { buildId: 'kept-working', quantity: 4 },
+    ]);
+    expect(w.projects[0].builds).toHaveLength(1);
+    expect(() => validateWorkspace(withoutScenario)).not.toThrow();
+    const project = w.projects[0];
+    project.revisions = [
+      {
+        id: 'snapshot',
+        name: 'Snapshot',
+        date: 1,
+        rows: structuredClone(project.rows),
+        observations: {},
+        build: structuredClone(project.workingBuild),
+        pricing: w.pricing,
+      },
+    ];
+    const withoutRevision = removeRevision(project, 'snapshot');
+    expect(withoutRevision.revisions).toEqual([]);
+    expect(project.revisions).toHaveLength(1);
+    expect(withoutRevision.rows).toEqual(project.rows);
+    project.workingBuild.revisionId = 'snapshot';
+    expect(() => removeRevision(project, 'snapshot')).toThrow('pinned');
+    project.workingBuild.revisionId = undefined;
+    project.builds[0].revisionId = 'snapshot';
+    expect(() => removeRevision(project, 'snapshot')).toThrow('pinned');
   });
 });
 

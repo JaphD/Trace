@@ -1,6 +1,7 @@
 import React, { ReactNode, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import { restoreTheme } from './theme';
 import './index.css';
 
 interface ErrorBoundaryProps {
@@ -84,6 +85,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
+restoreTheme();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

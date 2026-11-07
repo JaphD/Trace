@@ -300,8 +300,9 @@ export function PartDetail({
               <div>
                 <strong className="mono">{item.code}</strong>
                 <small>
-                  {count(ao?.stock)} in stock · {ao?.library || 'unknown'} ·{' '}
-                  {ao?.eligibility || 'unknown'}
+                  {count(ao?.stock)} in stock ·{' '}
+                  {ao?.library === 'preferred' ? 'Extended (Preferred)' : ao?.library || 'unknown'}{' '}
+                  · {ao?.eligibility || 'unknown'}
                 </small>
                 <small>
                   Row estimate: {money((ac?.cost ?? 0) + (ac?.fee ?? 0))}{' '}
@@ -433,7 +434,9 @@ export function PartDetail({
                 onChange={(e) => observation({ library: e.target.value as any })}
               >
                 {['unknown', 'basic', 'preferred', 'extended'].map((x) => (
-                  <option key={x}>{x}</option>
+                  <option key={x} value={x}>
+                    {x === 'preferred' ? 'Extended (Preferred)' : x}
+                  </option>
                 ))}
               </select>
             </Field>
@@ -479,19 +482,21 @@ export function PartDetail({
               <LineChart
                 data={o.history.map((h) => ({ ...h, time: new Date(h.date).toLocaleString() }))}
               >
-                <CartesianGrid stroke="#2d2d2d" strokeDasharray="3 3" />
+                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
                 <XAxis dataKey="time" hide />
-                <YAxis width={60} stroke="#ababab" />
+                <YAxis width={60} stroke="var(--muted)" />
                 <Tooltip
+                  itemStyle={{ color: 'var(--text)' }}
                   contentStyle={{
-                    background: '#171717',
-                    border: '1px solid #2d2d2d',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
                     borderRadius: 8,
                   }}
                 />
                 <Line
                   dataKey={metric}
-                  stroke={metric === 'stock' ? 'var(--accent)' : '#c3c3c3'}
+                  stroke={metric === 'stock' ? 'var(--accent)' : 'var(--text-secondary)'}
                   type="stepAfter"
                   dot={false}
                   connectNulls={false}

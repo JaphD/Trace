@@ -23,7 +23,10 @@ import {
   Folder,
   LayoutGrid,
   Power,
+  Moon,
+  Sun,
 } from 'lucide-react';
+import { currentTheme, setTheme } from './theme';
 import Papa from 'papaparse';
 import { uid, type Workspace, type Project, type BomRow, type Observation } from './core/types';
 import {
@@ -44,7 +47,9 @@ import {
   migrate,
   mergeWorkspace,
   editableWorkspace,
+  removeAllProjects,
   removeProject,
+  removeScenario,
 } from './core/storage';
 import {
   calculate,
@@ -86,6 +91,7 @@ import {
 
 type View = 'bom' | 'build' | 'scenarios' | 'revisions' | 'demand' | 'inventory' | 'activity';
 export default function App() {
+  const [theme, updateTheme] = useState(currentTheme);
   const confirmation = useConfirmation();
   const [initial] = useState(() => ({ workspace: emptyWorkspace(), error: '' }));
   const [ready, setReady] = useState(false);
@@ -476,6 +482,20 @@ export default function App() {
     setModal(null);
     openProject(nextId);
     setNotice('Project deleted. Its inventory allocations were released.');
+  };
+  const deleteAllProjects = async () => {
+    const count = wRef.current.projects.length;
+    if (
+      !count ||
+      !(await confirmation.ask(
+        `Delete all ${count} ${count === 1 ? 'project' : 'projects'}, including their revisions and saved builds? Owned inventory is kept and allocations are released. Export a backup first if you need a copy.`,
+      ))
+    )
+      return;
+    setW(removeAllProjects);
+    setModal(null);
+    openProject('');
+    setNotice('All projects deleted. Their inventory allocations were released.');
   };
   const importRows = (next: BomRow[], revision: boolean, basis: 'board' | 'panel') => {
     if (!p) return;
@@ -909,6 +929,15 @@ export default function App() {
             <Activity size={18} />
             Activity <span className="nav-count">{w.events.length}</span>
           </button>
+          <button
+            type="button"
+            className="nav-item danger-text"
+            disabled={!w.projects.length}
+            onClick={deleteAllProjects}
+          >
+            <Trash2 size={18} />
+            Delete all projects
+          </button>
         </details>
         <div className="sidebar-bottom">
           <div className="local-note">
@@ -943,21 +972,6 @@ export default function App() {
             <Settings2 size={17} />
             Preferences
           </button>
-          <button
-            className="nav-item"
-            onClick={stopSession}
-            disabled={busy || !!loadError}
-            title={
-              busy
-                ? 'Wait for the parts refresh to finish'
-                : loadError
-                  ? 'Resolve the workspace loading error first'
-                  : 'Save and stop the local server'
-            }
-          >
-            <Power size={17} />
-            Stop TRACE
-          </button>
         </div>
       </aside>
       <div className="main-shell">
@@ -966,11 +980,40 @@ export default function App() {
             Workbench <ChevronRight size={14} />
             <span>{p?.name || 'Workspace'}</span>
           </div>
-          <div className="top-status">
-            <span className={'status-dot ' + (!online ? 'offline' : '')} />
-            {online ? 'Internet available' : 'Offline · cached data'}
-            <span className="top-rule" />
-            TRACE v{APP_VERSION} · Local
+          <div className="topbar-actions">
+            <div className="top-status">
+              <span className={'status-dot ' + (!online ? 'offline' : '')} />
+              {online ? 'Internet available' : 'Offline · cached data'}
+              <span className="top-rule" />
+              TRACE v{APP_VERSION} · Local
+            </div>
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={() => {
+                const next = theme === 'dark' ? 'light' : 'dark';
+                setTheme(next);
+                updateTheme(next);
+              }}
+            >
+              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </button>
+            <button
+              className="stop-trace"
+              onClick={stopSession}
+              disabled={busy || !!loadError}
+              title={
+                busy
+                  ? 'Wait for the parts refresh to finish'
+                  : loadError
+                    ? 'Resolve the workspace loading error first'
+                    : 'Save and stop the local server'
+              }
+            >
+              <Power size={17} />
+              Stop TRACE
+            </button>
           </div>
         </header>
         <main>
@@ -1336,7 +1379,22 @@ export default function App() {
               onChange={(b) => updateProject({ ...p, workingBuild: b })}
             />
           ) : view === 'scenarios' ? (
-            <ScenariosPanel p={p} w={w} onChange={updateProject} />
+            <ScenariosPanel
+              p={p}
+              w={w}
+              onChange={updateProject}
+              onDelete={async (build) => {
+                const projectId = p.id;
+                if (
+                  await confirmation.ask(
+                    `Delete scenario “${build.name}”? Its inventory allocations will be released. The working build copy is kept.`,
+                  )
+                ) {
+                  setW((prev) => removeScenario(prev, projectId, build.id));
+                  setNotice('Scenario deleted. Its inventory allocations were released.');
+                }
+              }}
+            />
           ) : view === 'revisions' ? (
             <RevisionsPanel p={p} w={w} onChange={updateProject} />
           ) : (
@@ -1399,7 +1457,7 @@ export default function App() {
                     <option value="all">All libraries</option>
                     <option value="basic">Basic</option>
                     <option value="extended">Extended</option>
-                    <option value="preferred">Preferred</option>
+                    <option value="preferred">Extended (Preferred)</option>
                     <option value="unknown">Unknown library</option>
                   </select>
                 </label>
@@ -1639,7 +1697,9 @@ export default function App() {
                                           : 'muted'
                                       }
                                     >
-                                      {o?.library || 'unknown'}
+                                      {o?.library === 'preferred'
+                                        ? 'Extended (Preferred)'
+                                        : o?.library || 'unknown'}
                                     </Badge>
                                     <small
                                       className={o?.eligibility === 'standard' ? 'amber' : 'muted'}

@@ -26,12 +26,53 @@ export function editableWorkspace(w: Workspace): Workspace {
   };
 }
 export function removeProject(w: Workspace, id: string): Workspace {
-  const project = w.projects.find((p) => p.id === id);
-  if (!project) return w;
-  const builds = new Set([project.workingBuild.id, ...project.builds.map((b) => b.id)]);
+  return removeProjects(w, (project) => project.id === id);
+}
+
+export function removeAllProjects(w: Workspace): Workspace {
+  return removeProjects(w, () => true);
+}
+
+export function removeScenario(w: Workspace, projectId: string, buildId: string): Workspace {
+  const project = w.projects.find((p) => p.id === projectId);
+  if (!project?.builds.some((b) => b.id === buildId)) return w;
   return {
     ...w,
-    projects: w.projects.filter((p) => p.id !== id),
+    projects: w.projects.map((p) =>
+      p.id === projectId
+        ? {
+            ...p,
+            builds: p.builds.filter((b) => b.id !== buildId),
+            workingBuild:
+              p.workingBuild.basedOnBuildId === buildId
+                ? { ...p.workingBuild, basedOnBuildId: undefined }
+                : p.workingBuild,
+          }
+        : p,
+    ),
+    inventory: w.inventory.map((lot) => ({
+      ...lot,
+      allocations: lot.allocations.filter((a) => a.buildId !== buildId),
+    })),
+  };
+}
+
+export function removeRevision(project: Project, revisionId: string): Project {
+  if ([project.workingBuild, ...project.builds].some((b) => b.revisionId === revisionId)) {
+    throw new Error('This revision is pinned to a build. Unpin it in Build & cost first.');
+  }
+  return { ...project, revisions: project.revisions.filter((r) => r.id !== revisionId) };
+}
+
+function removeProjects(w: Workspace, shouldRemove: (project: Project) => boolean): Workspace {
+  const removed = w.projects.filter(shouldRemove);
+  if (!removed.length) return w;
+  const builds = new Set(
+    removed.flatMap((project) => [project.workingBuild.id, ...project.builds.map((b) => b.id)]),
+  );
+  return {
+    ...w,
+    projects: w.projects.filter((project) => !shouldRemove(project)),
     inventory: w.inventory.map((lot) => ({
       ...lot,
       allocations: lot.allocations.filter((a) => !builds.has(a.buildId)),

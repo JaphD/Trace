@@ -12,6 +12,7 @@ import {
   defaultPricing,
 } from '../core/calculations';
 import { diffRows } from '../core/bom';
+import { removeRevision } from '../core/storage';
 import {
   Field,
   NumberField,
@@ -157,7 +158,7 @@ export function Settings({
             })
           }
         />
-        Preferred Extended exempt from Economic loading fees
+        Extended (Preferred) parts exempt from Economic loading fees
       </label>
       <label className="check">
         <input
@@ -463,10 +464,12 @@ export function RevisionsPanel({
   onChange: (p: Project) => void;
 }) {
   const [naming, setNaming] = useState(false);
+  const confirmation = useConfirmation();
   const [selected, setSelected] = useState(p.revisions.at(-1)?.id || ''),
     [basis, setBasis] = useState<'current' | 'saved'>('current');
   const rev = p.revisions.find((r) => r.id === selected),
     changes = rev ? diffRows(rev.rows, p.rows) : [];
+  const pinnedBuilds = [p.workingBuild, ...p.builds].filter((b) => b.revisionId === selected);
   const current = calculate(
     p.rows,
     w.observations,
@@ -524,6 +527,7 @@ export function RevisionsPanel({
         Snapshots preserve parts, observations, build assumptions and pricing. They are plans, not
         submitted orders. Refresh first if you need a current stock check.
       </p>
+      {confirmation.dialog}
       {!p.revisions.length ? (
         <Empty title="Keep a checkpoint before the next design change">
           Freeze the current BOM, or let re-import save the previous revision automatically.
@@ -564,7 +568,33 @@ export function RevisionsPanel({
                 Export snapshot
               </button>
             )}
+            {rev && (
+              <button
+                className="danger-text"
+                disabled={pinnedBuilds.length > 0}
+                onClick={async () => {
+                  if (
+                    await confirmation.ask(
+                      `Delete frozen BOM “${rev.name}”, including its saved observations and pricing? Export the snapshot first if you need a copy.`,
+                    )
+                  ) {
+                    onChange(removeRevision(p, rev.id));
+                    setSelected(p.revisions.find((r) => r.id !== rev.id)?.id || '');
+                  }
+                }}
+              >
+                <Trash2 size={16} />
+                Delete revision
+              </button>
+            )}
           </div>
+          {rev && pinnedBuilds.length > 0 && (
+            <p className="notice">
+              To delete this revision, first unpin it from these builds in Build &amp; cost:{' '}
+              {pinnedBuilds.map((b) => b.name).join(', ')}. For a saved scenario, copy it to the
+              build editor, choose the working BOM, then update the original scenario.
+            </p>
+          )}
           {rev && (
             <>
               <p className="notice">
@@ -610,10 +640,12 @@ export function ScenariosPanel({
   p,
   w,
   onChange,
+  onDelete,
 }: {
   p: Project;
   w: Workspace;
   onChange: (p: Project) => void;
+  onDelete: (build: Build) => void;
 }) {
   const [naming, setNaming] = useState(false);
   const save = (name: string) => {
@@ -712,6 +744,10 @@ export function ScenariosPanel({
                 </Field>
                 <button onClick={() => onChange(copyScenarioToWorking(p, b.id))}>
                   Copy to build editor
+                </button>
+                <button className="danger-text" onClick={() => onDelete(b)}>
+                  <Trash2 size={16} />
+                  Delete scenario
                 </button>
                 <small>
                   The saved build remains unchanged. Edit the copy in Build & cost, then update the
